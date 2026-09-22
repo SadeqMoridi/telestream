@@ -61,6 +61,7 @@ tasks.test {
 tasks.register<Jar>("fatJar") {
     archiveBaseName.set("telestream")
     archiveClassifier.set("all")
+    archiveVersion.set("")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes["Main-Class"] = "com.telestream.MainKt"

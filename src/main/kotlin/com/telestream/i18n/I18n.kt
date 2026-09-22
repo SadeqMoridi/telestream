@@ -29,6 +29,7 @@ Discover and stream movies, TV shows, and anime powered by native CloudStream so
         "resolving_links" to "⏳ *Extracting stream and download links...*",
         "links_ready" to "🎬 *Stream & Download Links for:*\n*%s*\n\nSelect a server or quality below:",
         "no_links" to "⚠️ *No direct streams found for this item.*",
+        "btn_webapp" to "🚀 Open TeleStream App",
         "btn_search" to "🔍 Search",
         "btn_bookmarks" to "⭐ Bookmarks",
         "btn_repos" to "📦 Repositories",
@@ -41,6 +42,7 @@ Discover and stream movies, TV shows, and anime powered by native CloudStream so
         "btn_unbookmark" to "❌ Remove Bookmark",
         "btn_back" to "⬅️ Back",
         "btn_close" to "✖️ Close",
+        "btn_toggle_nsfw" to "🔞 Toggle NSFW Sources",
         "bookmarked" to "⭐ Saved to your bookmarks!",
         "unbookmarked" to "🗑️ Removed from bookmarks.",
         "no_bookmarks" to "📭 You don't have any bookmarks saved.",
@@ -83,7 +85,18 @@ If you enjoy using this bot, please consider supporting development and server c
 ⭐ *Total Bookmarks:* %d
 📦 *Synced Repositories:* %d
 🧩 *Total Extensions:* %d
+🔞 *NSFW Sources:* %s
 ⚙️ *JVM Memory Used:* %d MB / %d MB
+""".trimIndent(),
+        "nsfw_toggled" to "🔞 NSFW content sources are now *%s*.",
+        "nsfw_on" to "ENABLED",
+        "nsfw_off" to "DISABLED",
+        "admin_help" to """
+⚙️ *Admin Commands:*
+• `/admin` - View dashboard & toggle NSFW
+• `/nsfw on|off` - Toggle adult sources
+• `/sync` - Sync repositories
+• `/addrepo <url>` - Add custom repository
 """.trimIndent()
     )
 
@@ -115,6 +128,7 @@ If you enjoy using this bot, please consider supporting development and server c
         "resolving_links" to "⏳ *در حال استخراج لینک‌های پخش و دانلود...*",
         "links_ready" to "🎬 *لینک‌های پخش و دانلود برای:*\n*%s*\n\nسرور یا کیفیت مورد نظر را انتخاب کنید:",
         "no_links" to "⚠️ *متأسفانه لینک فعالی برای این عنوان یافت نشد.*",
+        "btn_webapp" to "🚀 اجرای مینی‌اپ تله‌استریم",
         "btn_search" to "🔍 جستجو",
         "btn_bookmarks" to "⭐ نشان‌شده‌ها",
         "btn_repos" to "📦 مخازن سورس‌ها",
@@ -127,6 +141,7 @@ If you enjoy using this bot, please consider supporting development and server c
         "btn_unbookmark" to "❌ حذف از نشان‌شده‌ها",
         "btn_back" to "⬅️ بازگشت",
         "btn_close" to "✖️ بستن",
+        "btn_toggle_nsfw" to "🔞 تغییر وضعیت محتوای بزرگسال",
         "bookmarked" to "⭐ به نشان‌شده‌های شما افزوده شد!",
         "unbookmarked" to "🗑️ از نشان‌شده‌ها حذف شد.",
         "no_bookmarks" to "📭 هیچ فیلم یا سریالی در لیست نشان‌شده‌های شما نیست.",
@@ -169,9 +184,31 @@ If you enjoy using this bot, please consider supporting development and server c
 ⭐ *تعداد فیلم‌های نشان‌شده:* %d
 📦 *مخازن همگام‌شده:* %d
 🧩 *کل افزونه‌ها:* %d
+🔞 *وضعیت سورس‌های بزرگسال (NSFW):* %s
 ⚙️ *حافظه مصرفی JVM:* %d مگابایت از %d مگابایت
+""".trimIndent(),
+        "nsfw_toggled" to "🔞 سورس‌های محتوای بزرگسال اکنون *%s* شدند.",
+        "nsfw_on" to "فعال (مجاز)",
+        "nsfw_off" to "غیرفعال (محدود)",
+        "admin_help" to """
+⚙️ *دستورات مدیریت:*
+• `/admin` - مشاهده داشبورد و آمار سیستم
+• `/nsfw on|off` - محدودسازی یا فعال‌سازی سورس‌های بزرگسال
+• `/sync` - همگام‌سازی مخازن کلوداستریم
+• `/addrepo <url>` - افزودن مخزن دلخواه
 """.trimIndent()
     )
+
+    fun donationMessage(lang: String = "en"): String {
+        return t(
+            "donate_msg",
+            lang,
+            com.telestream.config.Config.usdtTrc20,
+            com.telestream.config.Config.tonWallet,
+            com.telestream.config.Config.btcWallet,
+            com.telestream.config.Config.ethWallet
+        )
+    }
 
     fun t(key: String, lang: String = "en", vararg args: Any): String {
         val dict = if (lang == "fa") fa else en

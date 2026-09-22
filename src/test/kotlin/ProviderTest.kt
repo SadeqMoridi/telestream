@@ -43,4 +43,28 @@ class ProviderTest {
         val fasel = FaselHD()
         assertEquals("ar", fasel.lang)
     }
+
+    @Test
+    fun testNsfwFiltering() {
+        // Create a dummy NSFW provider
+        val nsfwProvider = object : com.lagradost.cloudstream3.MainAPI() {
+            override var name = "AdultTestProvider"
+            override var mainUrl = "https://adult.example.com"
+            override var supportedTypes = setOf(TvType.NSFW)
+            override suspend fun search(query: String): List<com.lagradost.cloudstream3.SearchResponse> = emptyList()
+        }
+        ProviderManager.register(nsfwProvider)
+
+        // When NSFW is disabled
+        com.telestream.database.Database.setNsfwEnabled(false)
+        kotlin.test.assertNull(ProviderManager.getProvider("AdultTestProvider"))
+
+        // When NSFW is enabled
+        com.telestream.database.Database.setNsfwEnabled(true)
+        kotlin.test.assertNotNull(ProviderManager.getProvider("AdultTestProvider"))
+
+        // Clean up
+        com.telestream.database.Database.setNsfwEnabled(false)
+        ProviderManager.providers.remove(nsfwProvider)
+    }
 }

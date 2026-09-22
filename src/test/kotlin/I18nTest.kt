@@ -19,5 +19,14 @@ class I18nTest {
 
         val searchPromptFa = I18n.t("search_prompt", "fa")
         assertTrue(searchPromptFa.contains("نام فیلم"))
+
+        val donateEn = I18n.donationMessage("en")
+        assertTrue(donateEn.contains("USDT") && donateEn.contains("TON") && donateEn.contains("BTC"))
+
+        val donateFa = I18n.donationMessage("fa")
+        assertTrue(donateFa.contains("حمایت مالی") && donateFa.contains("USDT"))
+
+        val adminHelpEn = I18n.t("admin_help", "en")
+        assertTrue(adminHelpEn.contains("/sync") && adminHelpEn.contains("/nsfw"))
     }
 }

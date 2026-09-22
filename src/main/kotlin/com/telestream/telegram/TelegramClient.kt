@@ -142,4 +142,21 @@ class TelegramClient(private val botToken: String) {
             logger.error("Error answering callback $callbackQueryId: ${e.message}")
         }
     }
+
+    suspend fun setChatMenuButton(menuButton: MenuButton): Boolean {
+        return try {
+            val payload = buildJsonObject {
+                put("menu_button", json.encodeToJsonElement(menuButton))
+            }
+            val res = client.post("$baseUrl/setChatMenuButton") {
+                contentType(ContentType.Application.Json)
+                setBody(payload.toString())
+            }
+            res.status.isSuccess()
+        } catch (e: Exception) {
+            logger.debug("Failed setting chat menu button: ${e.message}")
+            false
+        }
+    }
 }
+

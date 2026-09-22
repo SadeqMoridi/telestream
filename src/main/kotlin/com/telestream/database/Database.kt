@@ -20,6 +20,12 @@ object Database {
     init {
         DriverManager.getConnection(url).use { conn ->
             conn.createStatement().use { stmt ->
+                // High-concurrency multi-user optimizations
+                stmt.execute("PRAGMA journal_mode = WAL;")
+                stmt.execute("PRAGMA synchronous = NORMAL;")
+                stmt.execute("PRAGMA busy_timeout = 5000;")
+                stmt.execute("PRAGMA cache_size = -8000;") // 8MB memory cache
+
                 stmt.execute(
                     """
                     CREATE TABLE IF NOT EXISTS users (
@@ -40,6 +46,14 @@ object Database {
                         poster_url TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         UNIQUE(user_id, media_url)
+                    );
+                    """.trimIndent()
+                )
+                stmt.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS app_settings (
+                        key TEXT PRIMARY KEY,
+                        value TEXT
                     );
                     """.trimIndent()
                 )
@@ -157,5 +171,41 @@ object Database {
             }
         }
         return 0
+    }
+
+    fun getSetting(key: String, defaultValue: String = ""): String {
+        DriverManager.getConnection(url).use { conn ->
+            val sql = "SELECT value FROM app_settings WHERE key = ?"
+            conn.prepareStatement(sql).use { stmt ->
+                stmt.setString(1, key)
+                val rs = stmt.executeQuery()
+                if (rs.next()) {
+                    return rs.getString("value") ?: defaultValue
+                }
+            }
+        }
+        return defaultValue
+    }
+
+    fun setSetting(key: String, value: String) {
+        DriverManager.getConnection(url).use { conn ->
+            val sql = """
+                INSERT INTO app_settings (key, value) VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """.trimIndent()
+            conn.prepareStatement(sql).use { stmt ->
+                stmt.setString(1, key)
+                stmt.setString(2, value)
+                stmt.executeUpdate()
+            }
+        }
+    }
+
+    fun isNsfwEnabled(): Boolean {
+        return getSetting("nsfw_enabled", "false").toBoolean()
+    }
+
+    fun setNsfwEnabled(enabled: Boolean) {
+        setSetting("nsfw_enabled", enabled.toString())
     }
 }

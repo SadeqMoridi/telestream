@@ -1,6 +1,7 @@
 package com.telestream.providers
 
 import com.lagradost.cloudstream3.*
+import com.telestream.database.Database
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -9,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap
 object ProviderManager {
     val providers = mutableListOf<MainAPI>()
 
-    // Simple thread-safe in-memory cache
+    // Thread-safe in-memory cache
     private val searchCache = ConcurrentHashMap<String, List<SearchResponse>>()
     private val loadCache = ConcurrentHashMap<String, LoadResponse>()
 
@@ -24,7 +25,9 @@ object ProviderManager {
     }
 
     fun getProvider(name: String): MainAPI? {
-        return providers.firstOrNull { it.name.equals(name, ignoreCase = true) }
+        val p = providers.firstOrNull { it.name.equals(name, ignoreCase = true) } ?: return null
+        if (p.isNsfw && !Database.isNsfwEnabled()) return null
+        return p
     }
 
     fun isPersianText(text: String): Boolean {
@@ -32,20 +35,23 @@ object ProviderManager {
     }
 
     suspend fun search(query: String): List<SearchResponse> = coroutineScope {
-        val cacheKey = query.trim().lowercase()
+        val nsfwAllowed = Database.isNsfwEnabled()
+        val cacheKey = "${query.trim().lowercase()}:nsfw=$nsfwAllowed"
         searchCache[cacheKey]?.let { return@coroutineScope it }
 
         val isFa = isPersianText(query)
+        val activeProviders = providers.filter { !it.isNsfw || nsfwAllowed }
+
         val targetProviders = if (isFa) {
-            providers.filter { it.lang == "fa" || it.lang == "multi" }.ifEmpty { providers }
+            activeProviders.filter { it.lang == "fa" || it.lang == "multi" }.ifEmpty { activeProviders }
         } else {
-            providers.filter { it.lang == "en" || it.lang == "multi" }.ifEmpty { providers }
+            activeProviders.filter { it.lang == "en" || it.lang == "multi" }.ifEmpty { activeProviders }
         }
 
         val deferreds = targetProviders.map { provider ->
             async {
                 try {
-                    provider.search(query)
+                    provider.search(query).filter { it.type != TvType.NSFW || nsfwAllowed }
                 } catch (e: Exception) {
                     emptyList()
                 }
@@ -58,10 +64,10 @@ object ProviderManager {
     }
 
     suspend fun load(providerName: String, url: String): LoadResponse? {
+        val provider = getProvider(providerName) ?: return null
         val cacheKey = "$providerName:$url"
         loadCache[cacheKey]?.let { return it }
 
-        val provider = getProvider(providerName) ?: return null
         val response = try {
             provider.load(url)
         } catch (e: Exception) {

@@ -11,12 +11,27 @@ import com.telestream.telegram.InlineKeyboardButton
 import com.telestream.telegram.InlineKeyboardMarkup
 import com.telestream.telegram.Message
 import com.telestream.telegram.TelegramClient
+import com.telestream.telegram.WebAppInfo
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
+import java.util.concurrent.ConcurrentHashMap
 
 class BotRunner(private val bot: TelegramClient) {
     private val logger = LoggerFactory.getLogger(BotRunner::class.java)
     private var isRunning = true
+
+    // Multi-user debounce cache to prevent rapid double-clicks
+    private val userLastAction = ConcurrentHashMap<Long, Long>()
+
+    private fun isDebounced(userId: Long): Boolean {
+        val now = System.currentTimeMillis()
+        val last = userLastAction[userId] ?: 0L
+        if (now - last < 350) {
+            return true
+        }
+        userLastAction[userId] = now
+        return false
+    }
 
     fun stop() {
         isRunning = false
@@ -32,8 +47,9 @@ class BotRunner(private val bot: TelegramClient) {
                 for (update in updates) {
                     offset = update.updateId + 1
 
+                    // High-concurrency: dispatch each update on Dispatchers.IO
                     coroutineScope {
-                        launch {
+                        launch(Dispatchers.IO) {
                             try {
                                 if (update.message != null) {
                                     handleMessage(update.message)
@@ -53,6 +69,39 @@ class BotRunner(private val bot: TelegramClient) {
         }
     }
 
+    private fun getMainMenuKeyboard(lang: String): InlineKeyboardMarkup {
+        val rows = mutableListOf<List<InlineKeyboardButton>>()
+        val webAppUrl = Config.webAppUrl
+        if (webAppUrl.isNotBlank()) {
+            rows.add(
+                listOf(
+                    InlineKeyboardButton(
+                        text = t("btn_webapp", lang),
+                        webApp = WebAppInfo(webAppUrl)
+                    )
+                )
+            )
+        }
+        rows.add(
+            listOf(
+                InlineKeyboardButton(text = t("btn_search", lang), callbackData = "menu:search"),
+                InlineKeyboardButton(text = t("btn_bookmarks", lang), callbackData = "menu:bookmarks")
+            )
+        )
+        rows.add(
+            listOf(
+                InlineKeyboardButton(text = t("btn_repos", lang), callbackData = "menu:repos"),
+                InlineKeyboardButton(text = t("btn_donate", lang), callbackData = "menu:donate")
+            )
+        )
+        rows.add(
+            listOf(
+                InlineKeyboardButton(text = t("btn_lang", lang), callbackData = "menu:lang")
+            )
+        )
+        return InlineKeyboardMarkup(rows)
+    }
+
     private suspend fun handleMessage(message: Message) {
         val chatId = message.chat.id
         val text = message.text?.trim() ?: return
@@ -61,22 +110,26 @@ class BotRunner(private val bot: TelegramClient) {
 
         when {
             text.startsWith("/start") -> {
+                bot.sendMessage(chatId, t("welcome", lang), replyMarkup = getMainMenuKeyboard(lang))
+            }
+
+            text.startsWith("/app") -> {
                 val keyboard = InlineKeyboardMarkup(
                     listOf(
                         listOf(
-                            InlineKeyboardButton(text = t("btn_search", lang), callbackData = "menu:search"),
-                            InlineKeyboardButton(text = t("btn_bookmarks", lang), callbackData = "menu:bookmarks")
-                        ),
-                        listOf(
-                            InlineKeyboardButton(text = t("btn_repos", lang), callbackData = "menu:repos"),
-                            InlineKeyboardButton(text = t("btn_donate", lang), callbackData = "menu:donate")
-                        ),
-                        listOf(
-                            InlineKeyboardButton(text = t("btn_lang", lang), callbackData = "menu:lang")
+                            InlineKeyboardButton(
+                                text = t("btn_webapp", lang),
+                                webApp = WebAppInfo(Config.webAppUrl)
+                            )
                         )
                     )
                 )
-                bot.sendMessage(chatId, t("welcome", lang), replyMarkup = keyboard)
+                bot.sendMessage(
+                    chatId,
+                    if (lang == "fa") "🎬 *برای اجرای نسخه مینی‌اپ تله‌استریم روی دکمه زیر کلیک کنید:*"
+                    else "🎬 *Click the button below to launch TeleStream Mini App:*",
+                    replyMarkup = keyboard
+                )
             }
 
             text.startsWith("/donate") -> {
@@ -87,23 +140,24 @@ class BotRunner(private val bot: TelegramClient) {
                 if (!Config.isAdmin(userId)) {
                     bot.sendMessage(chatId, t("admin_only", lang))
                 } else {
-                    val summary = CloudStreamRepoManager.getSummary()
-                    val runtime = Runtime.getRuntime()
-                    val totalMb = runtime.totalMemory() / (1024 * 1024)
-                    val freeMb = runtime.freeMemory() / (1024 * 1024)
-                    val usedMb = totalMb - freeMb
-                    val stats = t(
-                        "admin_stats",
-                        lang,
-                        Database.getTotalUsers(),
-                        Database.getTotalBookmarks(),
-                        summary["totalRepositories"] as? Int ?: 0,
-                        summary["totalPlugins"] as? Int ?: 0,
-                        usedMb,
-                        totalMb
-                    )
-                    bot.sendMessage(chatId, stats)
+                    showAdminDashboard(chatId, lang)
                 }
+            }
+
+            text.startsWith("/nsfw") -> {
+                if (!Config.isAdmin(userId)) {
+                    bot.sendMessage(chatId, t("admin_only", lang))
+                    return
+                }
+                val arg = text.removePrefix("/nsfw").trim().lowercase()
+                val newStatus = when (arg) {
+                    "on", "enable", "1", "true" -> true
+                    "off", "disable", "0", "false" -> false
+                    else -> !Database.isNsfwEnabled()
+                }
+                Database.setNsfwEnabled(newStatus)
+                val statusStr = if (newStatus) t("nsfw_on", lang) else t("nsfw_off", lang)
+                bot.sendMessage(chatId, t("nsfw_toggled", lang, statusStr))
             }
 
             text.startsWith("/repos") -> {
@@ -187,6 +241,11 @@ class BotRunner(private val bot: TelegramClient) {
         val userId = callback.from.id
         val lang = Database.getUserLanguage(userId)
 
+        if (isDebounced(userId) && !data.startsWith("setlang:") && data != "close") {
+            bot.answerCallbackQuery(callback.id)
+            return
+        }
+
         when {
             data.startsWith("setlang:") -> {
                 val newLang = data.removePrefix("setlang:")
@@ -196,17 +255,7 @@ class BotRunner(private val bot: TelegramClient) {
                     chatId,
                     messageId,
                     t("welcome", newLang),
-                    replyMarkup = InlineKeyboardMarkup(
-                        listOf(
-                            listOf(
-                                InlineKeyboardButton(text = t("btn_search", newLang), callbackData = "menu:search"),
-                                InlineKeyboardButton(text = t("btn_bookmarks", newLang), callbackData = "menu:bookmarks")
-                            ),
-                            listOf(
-                                InlineKeyboardButton(text = t("btn_lang", newLang), callbackData = "menu:lang")
-                            )
-                        )
-                    )
+                    replyMarkup = getMainMenuKeyboard(newLang)
                 )
             }
 
@@ -233,6 +282,19 @@ class BotRunner(private val bot: TelegramClient) {
             data == "menu:donate" -> {
                 showDonationMessage(chatId, lang, messageId)
                 bot.answerCallbackQuery(callback.id)
+            }
+
+            data == "toggle_nsfw" -> {
+                if (!Config.isAdmin(userId)) {
+                    bot.answerCallbackQuery(callback.id, t("admin_only", lang), showAlert = true)
+                    return
+                }
+                val current = Database.isNsfwEnabled()
+                Database.setNsfwEnabled(!current)
+                val newStatus = !current
+                val statusStr = if (newStatus) t("nsfw_on", lang) else t("nsfw_off", lang)
+                bot.answerCallbackQuery(callback.id, t("nsfw_toggled", lang, statusStr), showAlert = true)
+                showAdminDashboard(chatId, lang, messageId)
             }
 
             data == "menu:sync" -> {
@@ -398,6 +460,41 @@ class BotRunner(private val bot: TelegramClient) {
                 Database.removeBookmark(userId, url)
                 bot.answerCallbackQuery(callback.id, t("unbookmarked", lang), showAlert = true)
             }
+        }
+    }
+
+    private suspend fun showAdminDashboard(chatId: Long, lang: String, messageId: Long? = null) {
+        val summary = CloudStreamRepoManager.getSummary()
+        val runtime = Runtime.getRuntime()
+        val totalMb = runtime.totalMemory() / (1024 * 1024)
+        val freeMb = runtime.freeMemory() / (1024 * 1024)
+        val usedMb = totalMb - freeMb
+        val nsfwStatus = if (Database.isNsfwEnabled()) t("nsfw_on", lang) else t("nsfw_off", lang)
+
+        val stats = t(
+            "admin_stats",
+            lang,
+            Database.getTotalUsers(),
+            Database.getTotalBookmarks(),
+            summary["totalRepositories"] as? Int ?: 0,
+            summary["totalPlugins"] as? Int ?: 0,
+            nsfwStatus,
+            usedMb,
+            totalMb
+        )
+
+        val keyboard = InlineKeyboardMarkup(
+            listOf(
+                listOf(InlineKeyboardButton(text = t("btn_toggle_nsfw", lang), callbackData = "toggle_nsfw")),
+                listOf(InlineKeyboardButton(text = t("btn_sync", lang), callbackData = "menu:sync")),
+                listOf(InlineKeyboardButton(text = t("btn_close", lang), callbackData = "close"))
+            )
+        )
+
+        if (messageId != null) {
+            bot.editMessageText(chatId, messageId, stats, replyMarkup = keyboard)
+        } else {
+            bot.sendMessage(chatId, stats, replyMarkup = keyboard)
         }
     }
 

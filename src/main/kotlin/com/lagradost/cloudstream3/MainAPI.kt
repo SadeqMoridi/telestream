@@ -28,7 +28,8 @@ enum class TvType {
     Live,
     Cartoon,
     Documentary,
-    Others
+    Others,
+    NSFW
 }
 
 enum class Qualities(val value: Int) {
@@ -255,7 +256,16 @@ object app {
         init(null, trustAllCerts, SecureRandom())
     }
 
+    private val dispatcher = okhttp3.Dispatcher().apply {
+        maxRequests = 128
+        maxRequestsPerHost = 32
+    }
+
+    private val connectionPool = okhttp3.ConnectionPool(64, 5, TimeUnit.MINUTES)
+
     val client: OkHttpClient = OkHttpClient.Builder()
+        .dispatcher(dispatcher)
+        .connectionPool(connectionPool)
         .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
         .hostnameVerifier { _, _ -> true }
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -335,16 +345,17 @@ abstract class MainAPI {
     open var mainUrl: String = ""
     open var lang: String = "en"
     open val supportedTypes: Set<TvType> = setOf(TvType.Movie, TvType.TvSeries)
-    open val hasMainPage: Boolean = false
+    open val isNsfw: Boolean
+        get() = supportedTypes.contains(TvType.NSFW)
 
-    abstract suspend fun search(query: String): List<SearchResponse>
-    abstract suspend fun load(url: String): LoadResponse?
-    abstract suspend fun loadLinks(
+    open suspend fun search(query: String): List<SearchResponse> = emptyList()
+    open suspend fun load(url: String): LoadResponse? = null
+    open suspend fun loadLinks(
         data: String,
         isCasting: Boolean = false,
         subtitleCallback: (SubtitleFile) -> Unit = {},
         callback: (ExtractorLink) -> Unit
-    ): Boolean
+    ): Boolean = false
 
     fun fixUrl(url: String): String {
         return if (url.startsWith("//")) {

@@ -30,7 +30,7 @@ RUN adduser -D -u 1000 appuser && \
     chown -R appuser:appuser /app
 
 # Copy compiled fatJar from builder
-COPY --from=builder --chown=appuser:appuser /app/build/libs/telestream-all.jar /app/telestream-all.jar
+COPY --from=builder --chown=appuser:appuser /app/build/libs/telestream*.jar /app/telestream-all.jar
 
 USER appuser
 

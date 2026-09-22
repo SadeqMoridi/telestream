@@ -32,4 +32,27 @@ class DatabaseTest {
         Database.removeBookmark(testUserId, testUrl)
         assertFalse(Database.isBookmarked(testUserId, testUrl))
     }
+
+    @Test
+    fun testNsfwSetting() {
+        // Toggle off
+        Database.setNsfwEnabled(false)
+        assertFalse(Database.isNsfwEnabled())
+
+        // Toggle on
+        Database.setNsfwEnabled(true)
+        assertTrue(Database.isNsfwEnabled())
+
+        // Restore to default (false)
+        Database.setNsfwEnabled(false)
+        assertFalse(Database.isNsfwEnabled())
+    }
+
+    @Test
+    fun testDatabaseStats() {
+        val totalUsers = Database.getTotalUsers()
+        assertTrue(totalUsers >= 0)
+        val totalBookmarks = Database.getTotalBookmarks()
+        assertTrue(totalBookmarks >= 0)
+    }
 }

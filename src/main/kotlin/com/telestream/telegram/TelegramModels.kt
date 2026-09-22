@@ -56,8 +56,28 @@ data class InlineKeyboardMarkup(
 )
 
 @Serializable
+data class WebAppInfo(
+    val url: String
+)
+
+@Serializable
 data class InlineKeyboardButton(
     val text: String,
     @SerialName("callback_data") val callbackData: String? = null,
-    val url: String? = null
+    val url: String? = null,
+    @SerialName("web_app") val webApp: WebAppInfo? = null
 )
+
+@Serializable
+data class MenuButton(
+    val type: String = "web_app",
+    val text: String = "🎬 TeleStream",
+    @SerialName("web_app") val webApp: WebAppInfo
+)
+
+@Serializable
+data class SetChatMenuButtonRequest(
+    @SerialName("chat_id") val chatId: Long? = null,
+    @SerialName("menu_button") val menuButton: MenuButton
+)
+

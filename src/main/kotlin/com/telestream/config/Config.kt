@@ -4,6 +4,12 @@ object Config {
     val botToken: String = System.getenv("BOT_TOKEN")?.trim() ?: ""
     val port: Int = System.getenv("PORT")?.toIntOrNull() ?: 7860
 
+    // Public WebApp URL (supports Hugging Face SPACE_HOST or custom domain)
+    val webAppUrl: String = System.getenv("WEBAPP_URL")?.trim()
+        ?.ifBlank { null }
+        ?: System.getenv("SPACE_HOST")?.let { "https://$it" }
+        ?: "http://localhost:$port"
+
     // Admin user IDs (comma separated, e.g. "12345678,87654321")
     val adminIds: Set<Long> = System.getenv("ADMIN_IDS")
         ?.split(",")
