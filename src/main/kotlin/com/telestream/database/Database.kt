@@ -138,4 +138,24 @@ object Database {
         }
         return list
     }
+
+    fun getTotalUsers(): Int {
+        DriverManager.getConnection(url).use { conn ->
+            conn.createStatement().use { stmt ->
+                val rs = stmt.executeQuery("SELECT COUNT(*) FROM users")
+                if (rs.next()) return rs.getInt(1)
+            }
+        }
+        return 0
+    }
+
+    fun getTotalBookmarks(): Int {
+        DriverManager.getConnection(url).use { conn ->
+            conn.createStatement().use { stmt ->
+                val rs = stmt.executeQuery("SELECT COUNT(*) FROM bookmarks")
+                if (rs.next()) return rs.getInt(1)
+            }
+        }
+        return 0
+    }
 }

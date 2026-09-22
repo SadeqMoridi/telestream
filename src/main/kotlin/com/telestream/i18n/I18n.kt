@@ -33,6 +33,7 @@ Discover and stream movies, TV shows, and anime powered by native CloudStream so
         "btn_bookmarks" to "⭐ Bookmarks",
         "btn_repos" to "📦 Repositories",
         "btn_sync" to "🔄 Sync Repositories",
+        "btn_donate" to "☕ Donate / Support",
         "btn_lang" to "🌐 Language / زبان",
         "btn_watch" to "▶️ Watch Online / Download",
         "btn_episodes" to "📺 Episodes",
@@ -54,7 +55,36 @@ Total Available Extensions: *%d*
 👇 *Click below to sync or type `/addrepo <url>` to add custom repos:*
 """.trimIndent(),
         "syncing" to "⏳ *Syncing repositories from cloudstreamrepo.com...*\nPlease wait a few seconds.",
-        "sync_done" to "✅ *Sync completed!* Fetched *%d* extensions across *%d* repositories."
+        "sync_done" to "✅ *Sync completed!* Fetched *%d* extensions across *%d* repositories.",
+        "donate_msg" to """
+💎 *Support TeleStream Project*
+
+If you enjoy using this bot, please consider supporting development and server costs with a crypto donation!
+
+💵 *USDT (TRC20):*
+`%s`
+
+⚡ *TON (Telegram / TON Wallet):*
+`%s`
+
+🪙 *Bitcoin (BTC):*
+`%s`
+
+🔷 *Ethereum (ERC20):*
+`%s`
+
+🙏 *Thank you so much for your generosity!*
+""".trimIndent(),
+        "admin_only" to "⛔ *Access Denied:* This command is restricted to bot administrators.",
+        "admin_stats" to """
+📊 *TeleStream Bot Admin Dashboard*
+
+👥 *Total Users:* %d
+⭐ *Total Bookmarks:* %d
+📦 *Synced Repositories:* %d
+🧩 *Total Extensions:* %d
+⚙️ *JVM Memory Used:* %d MB / %d MB
+""".trimIndent()
     )
 
     private val fa = mapOf(
@@ -89,6 +119,7 @@ Total Available Extensions: *%d*
         "btn_bookmarks" to "⭐ نشان‌شده‌ها",
         "btn_repos" to "📦 مخازن سورس‌ها",
         "btn_sync" to "🔄 همگام‌سازی مخازن",
+        "btn_donate" to "☕ حمایت مالی (Donate)",
         "btn_lang" to "🌐 تغییر زبان / Language",
         "btn_watch" to "▶️ تماشا / دانلود",
         "btn_episodes" to "📺 لیست قسمت‌ها",
@@ -110,7 +141,36 @@ Total Available Extensions: *%d*
 👇 *روی دکمه زیر برای همگام‌سازی کلیک کنید یا با دستور `/addrepo <url>` مخزن جدید اضافه کنید:*
 """.trimIndent(),
         "syncing" to "⏳ *در حال دریافت و همگام‌سازی مخازن از cloudstreamrepo.com...*\nچند ثانیه شکیبا باشید.",
-        "sync_done" to "✅ *همگام‌سازی با موفقیت انجام شد!* تعداد *%d* افزونه از *%d* مخزن دریافت شد."
+        "sync_done" to "✅ *همگام‌سازی با موفقیت انجام شد!* تعداد *%d* افزونه از *%d* مخزن دریافت شد.",
+        "donate_msg" to """
+💎 *حمایت مالی از توسعه پروژه تله‌استریم*
+
+اگر از این ربات رایگان استفاده می‌کنید و برایتان کاربردی است، می‌توانید با دونیت کریپتو به نگهداری سرورها و توسعه سورس‌ها کمک کنید:
+
+💵 *تتر USDT (شبکه TRC20):*
+`%s`
+
+⚡ *تون کوین TON (شبکه TON / تلگرام):*
+`%s`
+
+🪙 *بیت‌کوین (BTC):*
+`%s`
+
+🔷 *اتریوم (ERC20):*
+`%s`
+
+🙏 *با لمس هر آدرس می‌توانید آن را کپی کنید. از مهر و همراهی شما سپاسگزاریم!*
+""".trimIndent(),
+        "admin_only" to "⛔ *دسترسی غیرمجاز:* این دستور فقط برای مدیران ربات تعریف شده است.",
+        "admin_stats" to """
+📊 *داشبورد مدیریت ربات تله‌استریم*
+
+👥 *تعداد کل کاربران:* %d
+⭐ *تعداد فیلم‌های نشان‌شده:* %d
+📦 *مخازن همگام‌شده:* %d
+🧩 *کل افزونه‌ها:* %d
+⚙️ *حافظه مصرفی JVM:* %d مگابایت از %d مگابایت
+""".trimIndent()
     )
 
     fun t(key: String, lang: String = "en", vararg args: Any): String {

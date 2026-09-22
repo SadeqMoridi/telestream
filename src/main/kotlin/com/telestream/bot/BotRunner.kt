@@ -1,9 +1,11 @@
 package com.telestream.bot
 
 import com.lagradost.cloudstream3.TvType
+import com.telestream.config.Config
 import com.telestream.database.Database
 import com.telestream.i18n.I18n.t
 import com.telestream.providers.ProviderManager
+import com.telestream.repo.CloudStreamRepoManager
 import com.telestream.telegram.CallbackQuery
 import com.telestream.telegram.InlineKeyboardButton
 import com.telestream.telegram.InlineKeyboardMarkup
@@ -66,11 +68,76 @@ class BotRunner(private val bot: TelegramClient) {
                             InlineKeyboardButton(text = t("btn_bookmarks", lang), callbackData = "menu:bookmarks")
                         ),
                         listOf(
+                            InlineKeyboardButton(text = t("btn_repos", lang), callbackData = "menu:repos"),
+                            InlineKeyboardButton(text = t("btn_donate", lang), callbackData = "menu:donate")
+                        ),
+                        listOf(
                             InlineKeyboardButton(text = t("btn_lang", lang), callbackData = "menu:lang")
                         )
                     )
                 )
                 bot.sendMessage(chatId, t("welcome", lang), replyMarkup = keyboard)
+            }
+
+            text.startsWith("/donate") -> {
+                showDonationMessage(chatId, lang)
+            }
+
+            text.startsWith("/admin") -> {
+                if (!Config.isAdmin(userId)) {
+                    bot.sendMessage(chatId, t("admin_only", lang))
+                } else {
+                    val summary = CloudStreamRepoManager.getSummary()
+                    val runtime = Runtime.getRuntime()
+                    val totalMb = runtime.totalMemory() / (1024 * 1024)
+                    val freeMb = runtime.freeMemory() / (1024 * 1024)
+                    val usedMb = totalMb - freeMb
+                    val stats = t(
+                        "admin_stats",
+                        lang,
+                        Database.getTotalUsers(),
+                        Database.getTotalBookmarks(),
+                        summary["totalRepositories"] as? Int ?: 0,
+                        summary["totalPlugins"] as? Int ?: 0,
+                        usedMb,
+                        totalMb
+                    )
+                    bot.sendMessage(chatId, stats)
+                }
+            }
+
+            text.startsWith("/repos") -> {
+                showReposSummary(chatId, lang)
+            }
+
+            text.startsWith("/sync") -> {
+                if (!Config.isAdmin(userId)) {
+                    bot.sendMessage(chatId, t("admin_only", lang))
+                    return
+                }
+                bot.sendMessage(chatId, t("syncing", lang))
+                val repos = CloudStreamRepoManager.syncAllDefaults()
+                val totalPlugins = repos.sumOf { it.pluginsCount }
+                bot.sendMessage(chatId, t("sync_done", lang, totalPlugins, repos.size))
+            }
+
+            text.startsWith("/addrepo") -> {
+                if (!Config.isAdmin(userId)) {
+                    bot.sendMessage(chatId, t("admin_only", lang))
+                    return
+                }
+                val url = text.removePrefix("/addrepo").trim()
+                if (url.isBlank()) {
+                    bot.sendMessage(chatId, "⚠️ Usage: `/addrepo <url>` (e.g., `https://example.com/repo.json`)")
+                } else {
+                    bot.sendMessage(chatId, "⏳ Fetching repository from `$url`...")
+                    val repo = CloudStreamRepoManager.fetchRepository(url)
+                    if (repo != null) {
+                        bot.sendMessage(chatId, "✅ Added repository *${repo.name}* with *${repo.pluginsCount}* plugins!")
+                    } else {
+                        bot.sendMessage(chatId, "❌ Failed to fetch repository from `$url`.")
+                    }
+                }
             }
 
             text.startsWith("/language") -> {
@@ -156,6 +223,28 @@ class BotRunner(private val bot: TelegramClient) {
             data == "menu:bookmarks" -> {
                 showBookmarks(chatId, userId, lang, messageId)
                 bot.answerCallbackQuery(callback.id)
+            }
+
+            data == "menu:repos" -> {
+                showReposSummary(chatId, lang, messageId)
+                bot.answerCallbackQuery(callback.id)
+            }
+
+            data == "menu:donate" -> {
+                showDonationMessage(chatId, lang, messageId)
+                bot.answerCallbackQuery(callback.id)
+            }
+
+            data == "menu:sync" -> {
+                if (!Config.isAdmin(userId)) {
+                    bot.answerCallbackQuery(callback.id, t("admin_only", lang), showAlert = true)
+                    return
+                }
+                bot.answerCallbackQuery(callback.id, t("syncing", lang).take(40))
+                val repos = CloudStreamRepoManager.syncAllDefaults()
+                val totalPlugins = repos.sumOf { it.pluginsCount }
+                bot.sendMessage(chatId, t("sync_done", lang, totalPlugins, repos.size))
+                showReposSummary(chatId, lang)
             }
 
             data == "close" -> {
@@ -358,6 +447,45 @@ class BotRunner(private val bot: TelegramClient) {
             bot.editMessageText(chatId, messageId, text, replyMarkup = InlineKeyboardMarkup(buttons))
         } else {
             bot.sendMessage(chatId, text, replyMarkup = InlineKeyboardMarkup(buttons))
+        }
+    }
+
+    private suspend fun showReposSummary(chatId: Long, lang: String, messageId: Long? = null) {
+        val summary = CloudStreamRepoManager.getSummary()
+        val totalRepos = summary["totalRepositories"] as? Int ?: 0
+        val totalPlugins = summary["totalPlugins"] as? Int ?: 0
+
+        val text = t("repos_summary", lang, totalRepos, totalPlugins)
+        val keyboard = InlineKeyboardMarkup(
+            listOf(
+                listOf(InlineKeyboardButton(text = t("btn_sync", lang), callbackData = "menu:sync")),
+                listOf(InlineKeyboardButton(text = t("btn_close", lang), callbackData = "close"))
+            )
+        )
+
+        if (messageId != null) {
+            bot.editMessageText(chatId, messageId, text, replyMarkup = keyboard)
+        } else {
+            bot.sendMessage(chatId, text, replyMarkup = keyboard)
+        }
+    }
+
+    private suspend fun showDonationMessage(chatId: Long, lang: String, messageId: Long? = null) {
+        val text = t(
+            "donate_msg",
+            lang,
+            Config.usdtTrc20,
+            Config.tonWallet,
+            Config.btcWallet,
+            Config.ethWallet
+        )
+        val keyboard = InlineKeyboardMarkup(
+            listOf(listOf(InlineKeyboardButton(text = t("btn_close", lang), callbackData = "close")))
+        )
+        if (messageId != null) {
+            bot.editMessageText(chatId, messageId, text, replyMarkup = keyboard)
+        } else {
+            bot.sendMessage(chatId, text, replyMarkup = keyboard)
         }
     }
 }

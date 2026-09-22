@@ -1,6 +1,7 @@
 package com.telestream
 
 import com.telestream.bot.BotRunner
+import com.telestream.config.Config
 import com.telestream.providers.ProviderManager
 import com.telestream.telegram.TelegramClient
 import io.ktor.http.*
@@ -17,8 +18,8 @@ import org.slf4j.LoggerFactory
 fun main(): Unit = runBlocking {
     val logger = LoggerFactory.getLogger("Main")
 
-    val botToken = System.getenv("BOT_TOKEN")?.trim()
-    val port = System.getenv("PORT")?.toIntOrNull() ?: 7860
+    val botToken = Config.botToken
+    val port = Config.port
 
     logger.info("=====================================================")
     logger.info("🎬 Starting TeleStream Telegram Bot (Pure Kotlin JVM)")
